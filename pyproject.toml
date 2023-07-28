@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "shshsh"
+version = "0.1.0"
+description = "bridge of python and shell"
+authors = ["zqqqqz2000 <zqqqqz2000@sina.cn>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
