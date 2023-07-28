@@ -1,8 +1,16 @@
 import shlex
+import io
+import sys
 import copy
 import re
-from typing import List, Any, Tuple, Union, Pattern, Dict
+from typing import IO, List, Any, Tuple, Union, Pattern, Dict, Optional, TextIO
 import subprocess
+
+
+stdout = sys.stdout
+stderr = sys.stderr
+
+_STD = Optional[Union[IO[bytes], int]]
 
 
 class Sh:
@@ -114,24 +122,39 @@ class Sh:
         return param_complete, cmd_list
 
     def __init__(
-        self, cmd: str, arg_placeholder: str = "#{*}", *args: Any, **kwargs: Any
+        self,
+        cmd: str,
+        arg_placeholder: str = "#{*}",
+        stdin: _STD = None,
+        stdout: _STD = subprocess.PIPE,
+        stderr: _STD = subprocess.PIPE,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
+        self.proc = None
+        self._stdin = stdin
+        self._stdout = stdout
+        self._stderr = stderr
         assert self._if_placeholder_valid(
             arg_placeholder
         ), "placeholder should must has one `*` to represent arg name, and should not as first and last char. valid e.g. `#{*}`"
 
         self.arg_placeholder = arg_placeholder
         self.cmd = cmd
-        self._try_parse_and_run(*args, **kwargs)
+        self._try_parse(*args, **kwargs)
 
-    def _try_parse_and_run(self, *args: str, **kwargs: str):
-        param_complete, self.cmd = self._parse_cmd(
+    def _try_parse(self, *args: str, **kwargs: str):
+        self.param_complete, self.cmd = self._parse_cmd(
             self.cmd, self.arg_placeholder, *args, **kwargs
         )
-        if param_complete:
-            self.proc = subprocess.Popen(self.cmd)
+
+    def run(self):
+        if self.param_complete:
+            self.proc = subprocess.Popen(
+                self.cmd, stdin=self._stdin, stderr=self._stderr, stdout=self._stderr
+            )
         else:
-            self.proc = None
+            raise ValueError(f"some args may not fill, current cmd: {self.cmd}")
 
     def status(self):
         ...
@@ -143,11 +166,11 @@ class Sh:
 
     def __mod__(self, other: Union[Tuple[str, ...], Dict[str, str], str]):
         if isinstance(other, Tuple):
-            self._try_parse_and_run(*other)
+            self._try_parse(*other)
         elif isinstance(other, Dict):
-            self._try_parse_and_run(**other)
+            self._try_parse(**other)
         elif isinstance(other, str):  # type: ignore
-            self._try_parse_and_run(other)
+            self._try_parse(other)
         else:
             raise ValueError(
                 f"only accept Tuple[str] or Dict[str, str] as arg, bug got {type(other)}"
@@ -156,5 +179,31 @@ class Sh:
         return self
 
     def __call__(self, *args: str, **kwargs: str) -> Any:
-        self._try_parse_and_run(*args, **kwargs)
+        self._try_parse(*args, **kwargs)
         return self
+
+    def __or__(self, other: Union["Sh", TextIO, str]):
+        if isinstance(other, io.IOBase):
+            if not self.proc:
+                self.run()
+            assert self.proc
+            assert self.proc.stdout
+            sys.stdout.buffer.write(self.proc.stdout.read())
+            return self
+        elif isinstance(other, Sh):
+            assert other.proc is None, f"cannot pipe after cmd run.({other.cmd})"
+            if not self.proc:
+                self.run()
+            assert self.proc
+            other._stdin = self.proc.stdout
+            other.run()
+            return other
+        elif isinstance(other, str):  # type: ignore
+            if not self.proc:
+                self.run()
+            assert self.proc
+            assert self.proc.stdout
+            new_sh = Sh(other, stdin=self.proc.stdout)
+            return new_sh
+        else:
+            raise ValueError(f"chain opt not support {other}")
