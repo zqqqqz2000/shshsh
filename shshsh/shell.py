@@ -1,7 +1,7 @@
 import shlex
 import copy
 import re
-from typing import List, Any, Tuple, Union, Pattern
+from typing import List, Any, Tuple, Union, Pattern, Dict
 import subprocess
 
 
@@ -121,13 +121,40 @@ class Sh:
         ), "placeholder should must has one `*` to represent arg name, and should not as first and last char. valid e.g. `#{*}`"
 
         self.arg_placeholder = arg_placeholder
+        self.cmd = cmd
+        self._try_parse_and_run(*args, **kwargs)
+
+    def _try_parse_and_run(self, *args: str, **kwargs: str):
         param_complete, self.cmd = self._parse_cmd(
-            cmd, arg_placeholder, *args, **kwargs
+            self.cmd, self.arg_placeholder, *args, **kwargs
         )
         if param_complete:
-            self.proc = subprocess.Popen(self.cmd, shell=True)
+            self.proc = subprocess.Popen(self.cmd)
         else:
             self.proc = None
 
     def status(self):
         ...
+
+    def wait(self):
+        if self.proc:
+            self.proc.wait()
+        return self
+
+    def __mod__(self, other: Union[Tuple[str, ...], Dict[str, str], str]):
+        if isinstance(other, Tuple):
+            self._try_parse_and_run(*other)
+        elif isinstance(other, Dict):
+            self._try_parse_and_run(**other)
+        elif isinstance(other, str):  # type: ignore
+            self._try_parse_and_run(other)
+        else:
+            raise ValueError(
+                f"only accept Tuple[str] or Dict[str, str] as arg, bug got {type(other)}"
+            )
+
+        return self
+
+    def __call__(self, *args: str, **kwargs: str) -> Any:
+        self._try_parse_and_run(*args, **kwargs)
+        return self
