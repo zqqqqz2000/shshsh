@@ -222,15 +222,16 @@ class Sh:
         assert self._proc, "process not start yet"
         return self._proc.pid
 
+    @property
     def code(self) -> int:
         assert self._proc, "process not start yet"
         return self._proc.returncode
 
-    def wait(self):
+    def wait(self, timeout: Optional[float] = None):
         if self._proc is None:
             self.run()
         assert self._proc
-        self._proc.wait()
+        self._proc.wait(timeout=timeout)
         return self
 
     def __mod__(self, other: Union[Tuple[str, ...], Dict[str, str], str, Pipe]):
@@ -287,6 +288,8 @@ class Sh:
             other.run()
             return other
         elif isinstance(other, str):  # type: ignore
+            if not other:
+                return self
             if not self._proc:
                 self.run()
             assert self._proc
@@ -331,3 +334,43 @@ class Sh:
 
     def __iter__(self) -> Generator[str, Any, None]:
         return self.iter()  # type: ignore
+
+    def __and__(self, other: Union["Sh", str]) -> "Sh":
+        if self._proc is None:
+            self.run()
+        self.wait()
+        code = self.code
+        if code == 0:
+            if isinstance(other, str):
+                if not other:
+                    return self
+                res = Sh(other)
+                res.run()
+                return res
+            elif isinstance(other, Sh):  # type: ignore
+                other.run()
+                return other
+        return self
+
+    def __floordiv__(self, other: Union["Sh", str]) -> "Sh":
+        if self._proc is None:
+            self.run()
+        self.wait()
+        code = self.code
+        if code != 0:
+            if isinstance(other, str):
+                if not other:
+                    return self
+                res = Sh(other)
+                res.run()
+                return res
+            elif isinstance(other, Sh):  # type: ignore
+                other.run()
+                return other
+        return self
+
+    def and_(self, other: Union["Sh", str]) -> "Sh":
+        return self & other
+
+    def or_(self, other: Union["Sh", str]) -> "Sh":
+        return self // other
