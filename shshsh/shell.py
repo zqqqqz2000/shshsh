@@ -1,14 +1,38 @@
 import shlex
+from threading import Thread
 import io
 import sys
 import copy
 import re
-from typing import IO, List, Any, Tuple, Union, Pattern, Dict, Optional, TextIO
+from typing import (
+    IO,
+    List,
+    Any,
+    Tuple,
+    Union,
+    Pattern,
+    Dict,
+    Optional,
+    TextIO,
+    Collection,
+    Callable,
+)
 import subprocess
+
+from shshsh.pipe import Pipe
+
+
+class Symbol:
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def __str__(self) -> str:
+        return f"Symbol[{self._name}]"
 
 
 stdout = sys.stdout
 stderr = sys.stderr
+fork_stream = Symbol("fork_stream")
 
 _STD = Optional[Union[IO[bytes], int]]
 
@@ -128,6 +152,8 @@ class Sh:
         stdin: _STD = None,
         stdout: _STD = subprocess.PIPE,
         stderr: _STD = subprocess.PIPE,
+        pass_fds: Collection[int] = (),
+        callback: Optional[Callable[..., Any]] = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -135,12 +161,14 @@ class Sh:
         self._stdin = stdin
         self._stdout = stdout
         self._stderr = stderr
+        self.pass_fds = pass_fds
         assert self._if_placeholder_valid(
             arg_placeholder
         ), "placeholder should must has one `*` to represent arg name, and should not as first and last char. valid e.g. `#{*}`"
 
         self.arg_placeholder = arg_placeholder
         self.cmd = cmd
+        self.callback = callback
         self._try_parse(*args, **kwargs)
 
     def _try_parse(self, *args: str, **kwargs: str):
@@ -151,8 +179,22 @@ class Sh:
     def run(self):
         if self.param_complete:
             self.proc = subprocess.Popen(
-                self.cmd, stdin=self._stdin, stderr=self._stderr, stdout=self._stderr
+                self.cmd,
+                stdin=self._stdin,
+                stderr=self._stderr,
+                stdout=self._stderr,
+                pass_fds=self.pass_fds,
             )
+
+            # wait done and call callback
+            def wait_done():
+                assert self.proc
+                self.proc.wait()
+                assert self.callback
+                self.callback()
+
+            if self.callback:
+                Thread(target=wait_done, daemon=True).run()
         else:
             raise ValueError(f"some args may not fill, current cmd: {self.cmd}")
 
@@ -164,13 +206,31 @@ class Sh:
             self.proc.wait()
         return self
 
-    def __mod__(self, other: Union[Tuple[str, ...], Dict[str, str], str]):
+    def __mod__(self, other: Union[Tuple[str, ...], Dict[str, str], str, Pipe]):
         if isinstance(other, Tuple):
             self._try_parse(*other)
         elif isinstance(other, Dict):
             self._try_parse(**other)
-        elif isinstance(other, str):  # type: ignore
+        elif isinstance(other, str):
             self._try_parse(other)
+        elif isinstance(other, Pipe):  # type: ignore
+            self.pass_fds = (other.in_fd, other.out_fd, *self.pass_fds)
+            if other.auto_close:
+                if self.callback:
+                    current_callback = self.callback
+
+                    def combine_callback():
+                        assert current_callback
+                        current_callback()
+                        other.close_in()
+
+                    self.callback = combine_callback
+                else:
+                    self.callback = other.close_in
+
+            other.auto_close = False
+
+            return self
         else:
             raise ValueError(
                 f"only accept Tuple[str] or Dict[str, str] as arg, bug got {type(other)}"
@@ -182,13 +242,14 @@ class Sh:
         self._try_parse(*args, **kwargs)
         return self
 
-    def __or__(self, other: Union["Sh", TextIO, str]):
+    def __or__(self, other: Union["Sh", TextIO, str]) -> "Sh":
         if isinstance(other, io.IOBase):
             if not self.proc:
                 self.run()
             assert self.proc
             assert self.proc.stdout
-            sys.stdout.buffer.write(self.proc.stdout.read())
+            other.buffer.write(self.proc.stdout.read())  # type: ignore
+            other.flush()
             return self
         elif isinstance(other, Sh):
             assert other.proc is None, f"cannot pipe after cmd run.({other.cmd})"
