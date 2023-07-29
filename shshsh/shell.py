@@ -1,5 +1,6 @@
 import shlex
 from threading import Thread
+from .streamer import str_streamer, bytes_streamer
 import io
 import sys
 import copy
@@ -7,6 +8,9 @@ import re
 from typing import (
     IO,
     List,
+    Generator,
+    overload,
+    Type,
     Any,
     Tuple,
     Union,
@@ -157,7 +161,7 @@ class Sh:
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        self.proc = None
+        self._proc = None
         self._stdin = stdin
         self._stdout = stdout
         self._stderr = stderr
@@ -176,9 +180,25 @@ class Sh:
             self.cmd, self.arg_placeholder, *args, **kwargs
         )
 
+    @property
+    def stdout(self):
+        if self._proc is None:
+            self.run()
+        assert self._proc
+        assert self._proc.stdout
+        return self._proc.stdout
+
+    @property
+    def stderr(self):
+        if self._proc is None:
+            self.run()
+        assert self._proc
+        assert self._proc.stderr
+        return self._proc.stderr
+
     def run(self):
         if self.param_complete:
-            self.proc = subprocess.Popen(
+            self._proc = subprocess.Popen(
                 self.cmd,
                 stdin=self._stdin,
                 stderr=self._stderr,
@@ -188,8 +208,8 @@ class Sh:
 
             # wait done and call callback
             def wait_done():
-                assert self.proc
-                self.proc.wait()
+                assert self._proc
+                self._proc.wait()
                 assert self.callback
                 self.callback()
 
@@ -198,12 +218,19 @@ class Sh:
         else:
             raise ValueError(f"some args may not fill, current cmd: {self.cmd}")
 
-    def status(self):
-        ...
+    def pid(self) -> int:
+        assert self._proc, "process not start yet"
+        return self._proc.pid
+
+    def code(self) -> int:
+        assert self._proc, "process not start yet"
+        return self._proc.returncode
 
     def wait(self):
-        if self.proc:
-            self.proc.wait()
+        if self._proc is None:
+            self.run()
+        assert self._proc
+        self._proc.wait()
         return self
 
     def __mod__(self, other: Union[Tuple[str, ...], Dict[str, str], str, Pipe]):
@@ -244,27 +271,63 @@ class Sh:
 
     def __or__(self, other: Union["Sh", TextIO, str]) -> "Sh":
         if isinstance(other, io.IOBase):
-            if not self.proc:
+            if not self._proc:
                 self.run()
-            assert self.proc
-            assert self.proc.stdout
-            other.buffer.write(self.proc.stdout.read())  # type: ignore
+            assert self._proc
+            assert self._proc.stdout
+            other.buffer.write(self._proc.stdout.read())  # type: ignore
             other.flush()
             return self
         elif isinstance(other, Sh):
-            assert other.proc is None, f"cannot pipe after cmd run.({other.cmd})"
-            if not self.proc:
+            assert other._proc is None, f"cannot pipe after cmd run.({other.cmd})"
+            if not self._proc:
                 self.run()
-            assert self.proc
-            other._stdin = self.proc.stdout
+            assert self._proc
+            other._stdin = self._proc.stdout
             other.run()
             return other
         elif isinstance(other, str):  # type: ignore
-            if not self.proc:
+            if not self._proc:
                 self.run()
-            assert self.proc
-            assert self.proc.stdout
-            new_sh = Sh(other, stdin=self.proc.stdout)
+            assert self._proc
+            assert self._proc.stdout
+            new_sh = Sh(other, stdin=self._proc.stdout)
             return new_sh
         else:
             raise ValueError(f"chain opt not support {other}")
+
+    @overload
+    def iter(
+        self, result_type: Type[str], sep: str = "\n", chunk_size: int = 1024
+    ) -> Generator[str, Any, None]:
+        ...
+
+    @overload
+    def iter(
+        self, result_type: Type[bytes], sep: bytes = b"\n", chunk_size: int = 1024
+    ) -> Generator[bytes, Any, None]:
+        ...
+
+    def iter(
+        self,
+        result_type: Union[Type[str], Type[bytes]] = str,
+        sep: Union[str, bytes] = ...,
+        chunk_size: int = 1024,
+    ):
+        if result_type is str:
+            if sep is ...:
+                sep = "\n"
+            else:
+                assert isinstance(sep, str)
+            return str_streamer(self.stdout, sep=sep, chunk_size=chunk_size)
+        elif result_type is bytes:
+            if sep is ...:
+                sep = b"\n"
+            else:
+                assert isinstance(sep, bytes)
+            return bytes_streamer(self.stdout, sep=sep, chunk_size=chunk_size)
+        else:
+            raise ValueError(f"result type: {result_type} is not supported")
+
+    def __iter__(self) -> Generator[str, Any, None]:
+        return self.iter()  # type: ignore
