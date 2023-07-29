@@ -1,12 +1,13 @@
 import shlex
 from threading import Thread
-from .streamer import str_streamer, bytes_streamer
+from .streamer import str_streamer, bytes_streamer, P
 import io
 import sys
 import copy
 import re
 from typing import (
     IO,
+    Iterable,
     List,
     Generator,
     overload,
@@ -180,6 +181,10 @@ class Sh:
             self.cmd, self.arg_placeholder, *args, **kwargs
         )
 
+    def set_stdin(self, stdin: Union[int, IO[bytes]]):
+        assert not self._proc, "is running, cannot set stdin"
+        self._stdin = stdin
+
     @property
     def stdout(self):
         if self._proc is None:
@@ -197,12 +202,15 @@ class Sh:
         return self._proc.stderr
 
     def run(self):
+        assert (
+            not self._proc
+        ), f"cannot run twice, command {self.cmd} already run, place create a new Sh"
         if self.param_complete:
             self._proc = subprocess.Popen(
                 self.cmd,
                 stdin=self._stdin,
                 stderr=self._stderr,
-                stdout=self._stderr,
+                stdout=self._stdout,
                 pass_fds=self.pass_fds,
             )
 
@@ -270,7 +278,33 @@ class Sh:
         self._try_parse(*args, **kwargs)
         return self
 
+    @overload
     def __or__(self, other: Union["Sh", TextIO, str]) -> "Sh":
+        ...
+
+    @overload
+    def __or__(
+        self,
+        other: Union[
+            P,
+            Callable[[bytes], Union[str, bytes]],
+            Callable[[str], Union[str, bytes]],
+            Iterable[Union[str, bytes]],
+        ],
+    ) -> P:
+        ...
+
+    def __or__(
+        self,
+        other: Union[
+            "Sh",
+            TextIO,
+            str,
+            P,
+            Callable[[Union[str, bytes]], Union[str, bytes]],
+            Iterable[Union[str, bytes]],
+        ],
+    ) -> Union["Sh", P]:
         if isinstance(other, io.IOBase):
             if not self._proc:
                 self.run()
@@ -287,7 +321,10 @@ class Sh:
             other._stdin = self._proc.stdout
             other.run()
             return other
-        elif isinstance(other, str):  # type: ignore
+        elif isinstance(other, P):
+            other.set_source(self.stdout)
+            return other
+        elif isinstance(other, str):
             if not other:
                 return self
             if not self._proc:
@@ -296,6 +333,12 @@ class Sh:
             assert self._proc.stdout
             new_sh = Sh(other, stdin=self._proc.stdout)
             return new_sh
+        elif isinstance(other, Callable) or isinstance(other, Iterable):  # type: ignore
+            p = P(other)
+            self.run()
+            assert self.stdout
+            p.set_source(self.stdout)
+            return p
         else:
             raise ValueError(f"chain opt not support {other}")
 
