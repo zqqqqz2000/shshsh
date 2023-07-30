@@ -279,7 +279,7 @@ class Sh:
         return self
 
     @overload
-    def __or__(self, other: Union["Sh", TextIO, str]) -> "Sh":
+    def __or__(self, other: Union["Sh", TextIO, str]) -> "Sh":  # type: ignore
         ...
 
     @overload
@@ -294,7 +294,7 @@ class Sh:
     ) -> P:
         ...
 
-    def __or__(
+    def __or__(  # type: ignore
         self,
         other: Union[
             "Sh",
@@ -331,7 +331,7 @@ class Sh:
                 self.run()
             assert self._proc
             assert self._proc.stdout
-            new_sh = Sh(other, stdin=self._proc.stdout)
+            new_sh = Sh(other, stdin=self.stdout)
             return new_sh
         elif isinstance(other, Callable) or isinstance(other, Iterable):  # type: ignore
             p = P(other)

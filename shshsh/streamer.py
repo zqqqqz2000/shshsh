@@ -14,7 +14,6 @@ import io
 import os
 import copy
 import collections
-from io import BytesIO
 from threading import Thread
 import inspect
 
@@ -65,7 +64,7 @@ class P:
         self._chunk_size = chunk_size
         # io -> [process_func] -> in_fd -> [thread: out_fd ->]
         self.out_fd, self.in_fd = os.pipe()
-        self.in_stream = os.fdopen(self.in_fd, "wb")
+        # self.in_stream = os.fdopen(self.in_fd, "wb")
         self.io: Optional[IO[bytes]] = None
         self.t: Optional[Thread] = None
         if isinstance(process_func, Iterable):
@@ -116,19 +115,18 @@ class P:
                 res = self.process_func(chunk)  # type: ignore
                 if isinstance(res, str):
                     res = res.encode("utf8")
-                self.in_stream.write(res + to_bytes(self.sep))
+                os.write(self.in_fd, res + to_bytes(self.sep))
         elif isinstance(self.process_func, collections.Iterable):
             for res in self.process_func:  # type: ignore
                 if isinstance(res, str):
                     res = res.encode("utf8")
-                self.in_stream.write(res + to_bytes(self.sep))  # type: ignore
+                os.write(self.in_fd, res + to_bytes(self.sep))  # type: ignore
         else:
             res_list = self.process_func()  # type: ignore
             for res in res_list:
                 if isinstance(res, str):
                     res = res.encode("utf8")
-                self.in_stream.write(res + to_bytes(self.sep))
-        self.in_stream.flush()
+                os.write(self.in_fd, res + to_bytes(self.sep))
         os.close(self.in_fd)
 
     def run(self):
@@ -161,7 +159,7 @@ class P:
         assert self.t
 
         if isinstance(other, str):
-            return Sh(other, stdin=self.out_fd, pass_fds=(self.in_fd, self.out_fd))
+            return Sh(other, stdin=self.out_fd)
         if isinstance(other, io.IOBase):
             stdout = os.fdopen(self.out_fd, "rb")
             other.buffer.write(stdout.read())  # type: ignore
@@ -170,7 +168,6 @@ class P:
         elif isinstance(other, Sh):  # type: ignore
             other = copy.copy(other)
             other.set_stdin(self.out_fd)
-            other.pass_fds = (self.in_fd, self.out_fd, *other.pass_fds)
             return other
         else:
             raise RuntimeError(
