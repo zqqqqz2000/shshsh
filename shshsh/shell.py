@@ -143,7 +143,7 @@ class Sh:
                     continue
                 if not key and curr_args_idx < len(args):
                     cmd_list[i] = cmd_list[i].replace(
-                        placeholder, shlex.quote(args[curr_args_idx])
+                        placeholder, shlex.quote(args[curr_args_idx]), 1
                     )
                     curr_args_idx += 1
                     continue
@@ -319,7 +319,6 @@ class Sh:
                 self.run()
             assert self._proc
             other._stdin = self._proc.stdout
-            other.run()
             return other
         elif isinstance(other, P):
             other.set_source(self.stdout)

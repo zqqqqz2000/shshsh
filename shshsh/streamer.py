@@ -1,19 +1,18 @@
 from typing import (
     IO,
     TextIO,
+    Iterable,
     Callable,
     Union,
     TypeVar,
     List,
     Optional,
-    Iterable,
     TYPE_CHECKING,
     overload,
 )
 import io
 import os
 import copy
-import collections
 from threading import Thread
 import inspect
 
@@ -67,6 +66,7 @@ class P:
         # self.in_stream = os.fdopen(self.in_fd, "wb")
         self.io: Optional[IO[bytes]] = None
         self.t: Optional[Thread] = None
+        self.process_func = process_func
         if isinstance(process_func, Iterable):
             self.arg_type = None
             if sep is ...:
@@ -75,7 +75,6 @@ class P:
                 self.sep = sep
             return
         signature = inspect.signature(process_func)
-        self.process_func = process_func
         if signature.parameters:
             assert (
                 len(signature.parameters) == 1
@@ -115,8 +114,9 @@ class P:
                 res = self.process_func(chunk)  # type: ignore
                 if isinstance(res, str):
                     res = res.encode("utf8")
+                assert isinstance(res, bytes)
                 os.write(self.in_fd, res + to_bytes(self.sep))
-        elif isinstance(self.process_func, collections.Iterable):
+        elif isinstance(self.process_func, Iterable):
             for res in self.process_func:  # type: ignore
                 if isinstance(res, str):
                     res = res.encode("utf8")
@@ -170,6 +170,6 @@ class P:
             other.set_stdin(self.out_fd)
             return other
         else:
-            raise RuntimeError(
+            raise ValueError(
                 f"cannot pipe with type: {type(other)}, only accept (Sh, str)"
             )

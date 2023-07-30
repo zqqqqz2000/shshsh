@@ -1,7 +1,8 @@
-from typing import Optional, List, IO, Union, overload
+from typing import Optional, List, IO, Union, overload, Iterable, Generator, Any
 import io
 import subprocess
 from .pipe import Pipe
+from .streamer import P
 from .shell import Sh
 
 
@@ -30,7 +31,19 @@ class _I:
     def __rshift__(self, other: IO[bytes]) -> "_I":
         ...
 
-    def __rshift__(self, other: Union[str, int, Pipe, IO[bytes]]):
+    def __rshift__(
+        self,
+        other: Union[
+            str,
+            int,
+            Pipe,
+            IO[bytes],
+            Iterable[str],
+            Iterable[bytes],
+            Generator[str, Any, None],
+            Generator[bytes, Any, None],
+        ],
+    ):
         if isinstance(other, str):
             return Sh(other, pass_fds=self.with_fds or (), stdin=self.with_stdin)
         elif isinstance(other, int):
@@ -43,6 +56,8 @@ class _I:
                 return _I(with_stdin=other, with_fds=self.with_fds)  # type: ignore
             else:
                 return _I(with_stdin=other)  # type: ignore
+        elif isinstance(other, Iterable):
+            return P(other)
         elif isinstance(other, Pipe):  # type: ignore
             if self.with_fds:
                 return _I(
