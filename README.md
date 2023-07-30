@@ -14,9 +14,9 @@ To install shshsh with conda, run: `conda install shshsh -c conda-forge`
 To install shshsh from source, clone the repository and run: `pip install poetry;poetry install`
 
 ## Basic Usage
-You can use `I >> "[command]"` or `Sh("[command]")`in any Python object.
+You can use `I >> "[command]"` or `Sh("[command]")`in any Python project.
 
-Here's an example of get all file which name contains "test":
+Here's an example of getting all file which name contains "test":
 ```python
 from shshsh import I
 
