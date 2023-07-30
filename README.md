@@ -1,4 +1,4 @@
-no longer have to search Google (or chatgpt) repeatedly to write sed or awk# shshsh 🐍❤️🐚
+# shshsh 🐍❤️🐚
 Shshsh is a bridge connects python and shell.
 - A simple way to write shell in python.
 - Flexable.
