@@ -162,7 +162,11 @@ class P:
             return Sh(other, stdin=self.out_fd)
         if isinstance(other, io.IOBase):
             stdout = os.fdopen(self.out_fd, "rb")
-            other.buffer.write(stdout.read())  # type: ignore
+            while True:
+                chunk = stdout.read(self._chunk_size)
+                other.buffer.write(chunk)  # type: ignore
+                if len(chunk) < self._chunk_size:
+                    break
             other.flush()
             stdout.close()
         elif isinstance(other, Sh):  # type: ignore

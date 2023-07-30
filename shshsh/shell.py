@@ -308,9 +308,11 @@ class Sh:
         if isinstance(other, io.IOBase):
             if not self._proc:
                 self.run()
-            assert self._proc
-            assert self._proc.stdout
-            other.buffer.write(self._proc.stdout.read())  # type: ignore
+            while True:
+                chunk = self.stdout.read(1024)
+                other.buffer.write(chunk)  # type: ignore
+                if len(chunk) < 1024:
+                    break
             other.flush()
             return self
         elif isinstance(other, Sh):
