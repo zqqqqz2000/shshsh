@@ -158,7 +158,7 @@ class Sh:
         arg_placeholder: str = "#{*}",
         stdin: Union[_STD, TextIO] = None,
         stdout: Union[_STD, TextIO] = subprocess.PIPE,
-        stderr: Union[_STD, TextIO] = stdout,
+        stderr: Union[_STD, TextIO] = stderr,
         pass_fds: Collection[int] = (),
         callback: Optional[Callable[..., Any]] = None,
         env: Optional[Dict[str, str]] = None,
