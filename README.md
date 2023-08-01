@@ -1,5 +1,5 @@
 # shshsh 🐍❤️🐚
-[![PyPI](https://img.shields.io/badge/python-3.9%7C3.10%7C3.11-blue.svg)](https://pypi.org/project/shshsh/)
+[![PyPI](https://img.shields.io/badge/python-3.8%7C3.9%7C3.10%7C3.11-blue.svg)](https://pypi.org/project/shshsh/)
 
 Shshsh is a bridge connects python and shell.
 - A simple way to write shell in python.
