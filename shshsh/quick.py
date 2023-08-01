@@ -1,6 +1,7 @@
 from typing import Optional, List, IO, Union, overload, Iterable, Generator, Any
 import io
 import subprocess
+from . import global_vars
 from .pipe import Pipe
 from .streamer import P
 from .shell import Sh
@@ -53,7 +54,13 @@ class _I:
         ],
     ):
         if isinstance(other, str):
-            return Sh(other, pass_fds=self.with_fds or (), stdin=self.with_stdin)
+            return Sh(
+                other,
+                pass_fds=self.with_fds or (),
+                stdin=self.with_stdin,
+                cwd=global_vars.CWD,
+                env=global_vars.ENV,
+            )
         elif isinstance(other, int):
             if self.with_fds:
                 return _I(with_stdin=other, with_fds=[*self.with_fds, other])

@@ -10,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     overload,
 )
+from . import global_vars
 import io
 import os
 import copy
@@ -159,7 +160,12 @@ class P:
         assert self.t
 
         if isinstance(other, str):
-            return Sh(other, stdin=self.out_fd)
+            return Sh(
+                other,
+                stdin=self.out_fd,
+                cwd=global_vars.CWD,
+                env=global_vars.ENV,
+            )
         if isinstance(other, io.IOBase):
             stdout = os.fdopen(self.out_fd, "rb")
             while True:

@@ -5,6 +5,7 @@ import io
 import sys
 import copy
 import re
+from . import global_vars
 from typing import (
     IO,
     Iterable,
@@ -160,9 +161,13 @@ class Sh:
         stderr: Union[_STD, TextIO] = stdout,
         pass_fds: Collection[int] = (),
         callback: Optional[Callable[..., Any]] = None,
+        env: Optional[Dict[str, str]] = None,
+        cwd: Optional[str] = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        self._env = copy.copy(env) or global_vars.ENV
+        self._cwd = cwd or global_vars.CWD
         self._proc = None
         self._stdin = stdin
         self._stdout = stdout
@@ -229,6 +234,8 @@ class Sh:
                 stderr=self._stderr,
                 stdout=self._stdout,  # type: ignore
                 pass_fds=self.pass_fds,
+                cwd=self._cwd,
+                env=self._env,
             )
 
             # wait done and call callback
@@ -347,7 +354,9 @@ class Sh:
                 self.run()
             assert self._proc
             assert self._proc.stdout
-            new_sh = Sh(other, stdin=self.stdout)
+            new_sh = Sh(
+                other, stdin=self.stdout, cwd=global_vars.CWD, env=global_vars.ENV
+            )
             return new_sh
         elif isinstance(other, Callable) or isinstance(other, Iterable):  # type: ignore
             p = P(other)
@@ -406,7 +415,11 @@ class Sh:
             if isinstance(other, str):
                 if not other:
                     return self
-                return Sh(other)
+                return Sh(
+                    other,
+                    cwd=global_vars.CWD,
+                    env=global_vars.ENV,
+                )
             elif isinstance(other, Sh):  # type: ignore
                 return other
         return self
@@ -430,7 +443,11 @@ class Sh:
             if isinstance(other, str):
                 if not other:
                     return self
-                res = Sh(other)
+                res = Sh(
+                    other,
+                    cwd=global_vars.CWD,
+                    env=global_vars.ENV,
+                )
                 res.run()
                 return res
             elif isinstance(other, Sh):  # type: ignore
