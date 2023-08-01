@@ -26,6 +26,7 @@ for filename in I >> "ls" | "grep test":
     print(filename)
 
 ```
+
 Also, you can safely pass parameter without command injection, shshsh will help you escape all bash control character:
 ```python
 from shshsh import I
@@ -36,6 +37,19 @@ res.wait()
 # dangerous; cat /etc/passwd
 
 ```
+
+The way to operate cwd:
+```python
+from shshsh.utils import cwd
+
+# change dir
+after_change_path = cwd("../../")
+
+# to get current cwd, just don't give any parameter
+cwd()
+
+```
+
 Python function or iterable can be part of chain, you no longer have to search Google (or chatgpt) repeatedly to write sed or awk😇:
 ```python
 from shshsh import I
@@ -55,5 +69,33 @@ def data_source():
 
 res = I >> data_source() | "grep test1" | stdout
 res.wait()
+
+```
+
+By default, the stderr will directly redirect to current python process's stderr. 
+
+But you can also keep its result by redirect expr `>=` for stderr and `>` for stdout:
+
+```python
+from shshsh import I, keep
+
+res = I >> "ls not_exist" >= keep
+res.wait()
+
+print(res.stderr.read())
+
+```
+
+The redirect expr can redirect the stream to any kind of IO object:
+```python
+from shshsh import I
+
+with open("res", "w") as f:
+    # redirect stdout to file.
+    res = I >> "echo 123" > f
+    # redirect stderr to file.
+    res1 = I >> "ls not_exist" >= f
+    res1.wait()
+    res.wait()
 
 ```
