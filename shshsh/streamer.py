@@ -28,7 +28,7 @@ def bytes_streamer(stream: IO[bytes], sep: bytes = b"\n", chunk_size: int = 1024
         for chunk in chunks[:-1]:
             yield chunk
         chunk_data = chunks[-1]
-        if len(chunk_data) < chunk_size:
+        if not chunk_data:
             return
 
 
@@ -163,9 +163,9 @@ class P:
         if isinstance(other, io.IOBase):
             stdout = os.fdopen(self.out_fd, "rb")
             while True:
-                chunk = stdout.read(self._chunk_size)
+                chunk = stdout.readline(self._chunk_size)
                 other.buffer.write(chunk)  # type: ignore
-                if len(chunk) < self._chunk_size:
+                if not chunk:
                     break
             other.flush()
             stdout.close()

@@ -154,9 +154,9 @@ class Sh:
         self,
         cmd: str,
         arg_placeholder: str = "#{*}",
-        stdin: _STD = None,
-        stdout: _STD = subprocess.PIPE,
-        stderr: _STD = subprocess.PIPE,
+        stdin: Union[_STD, TextIO] = None,
+        stdout: Union[_STD, TextIO] = subprocess.PIPE,
+        stderr: Union[_STD, TextIO] = stdout,
         pass_fds: Collection[int] = (),
         callback: Optional[Callable[..., Any]] = None,
         *args: Any,
@@ -186,19 +186,35 @@ class Sh:
         self._stdin = stdin
 
     @property
+    def stdout_readable(self):
+        assert self._proc, "process not start yet"
+        return bool(self._proc.stdout)
+
+    @property
+    def stderr_readable(self):
+        assert self._proc, "process not start yet"
+        return bool(self._proc.stderr)
+
+    @property
     def stdout(self):
         if self._proc is None:
+            self._stdout = subprocess.PIPE
             self.run()
         assert self._proc
-        assert self._proc.stdout
+        assert (
+            self._proc.stdout
+        ), f"cannot get stdout, current stdout is redirect to {self._stdout}"
         return self._proc.stdout
 
     @property
     def stderr(self):
         if self._proc is None:
+            self._stderr = subprocess.PIPE
             self.run()
         assert self._proc
-        assert self._proc.stderr
+        assert (
+            self._proc.stderr
+        ), f"cannot get stdout, current stdout is redirect to {self._stderr}"
         return self._proc.stderr
 
     def run(self):
@@ -210,7 +226,7 @@ class Sh:
                 self.cmd,
                 stdin=self._stdin,
                 stderr=self._stderr,
-                stdout=self._stdout,
+                stdout=self._stdout,  # type: ignore
                 pass_fds=self.pass_fds,
             )
 
@@ -306,29 +322,27 @@ class Sh:
         ],
     ) -> Union["Sh", P]:
         if isinstance(other, io.IOBase):
+            self._stdout = other
             if not self._proc:
                 self.run()
-            while True:
-                chunk = self.stdout.read(1024)
-                other.buffer.write(chunk)  # type: ignore
-                if len(chunk) < 1024:
-                    break
-            other.flush()
             return self
         elif isinstance(other, Sh):
             assert other._proc is None, f"cannot pipe after cmd run.({other.cmd})"
             if not self._proc:
                 self.run()
             assert self._proc
+            self._stdout = subprocess.PIPE
             other._stdin = self._proc.stdout
             return other
         elif isinstance(other, P):
+            self._stdout = subprocess.PIPE
             other.set_source(self.stdout)
             return other
         elif isinstance(other, str):
             if not other:
                 return self
             if not self._proc:
+                self._stdout = subprocess.PIPE
                 self.run()
             assert self._proc
             assert self._proc.stdout
@@ -336,8 +350,12 @@ class Sh:
             return new_sh
         elif isinstance(other, Callable) or isinstance(other, Iterable):  # type: ignore
             p = P(other)
-            self.run()
-            assert self.stdout
+            if not self._proc:
+                self._stdout = subprocess.PIPE
+                self.run()
+            assert (
+                self.stdout
+            ), f"cannot get stdout and put to {other}, process already running and its stdout is not pipe, is {self._stdout}"
             p.set_source(self.stdout)
             return p
         else:
@@ -383,20 +401,16 @@ class Sh:
         if self._proc is None:
             self.run()
         self.wait()
-        code = self.code
-        if code == 0:
+        if self.code == 0:
             if isinstance(other, str):
                 if not other:
                     return self
-                res = Sh(other)
-                res.run()
-                return res
+                return Sh(other)
             elif isinstance(other, Sh):  # type: ignore
-                other.run()
                 return other
         return self
 
-    def __floordiv__(self, other: Union["Sh", str]) -> "Sh":
+    def or_(self, other: Union["Sh", str]) -> "Sh":
         if self._proc is None:
             self.run()
         self.wait()
@@ -415,6 +429,3 @@ class Sh:
 
     def and_(self, other: Union["Sh", str]) -> "Sh":
         return self & other
-
-    def or_(self, other: Union["Sh", str]) -> "Sh":
-        return self // other

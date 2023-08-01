@@ -31,6 +31,14 @@ class _I:
     def __rshift__(self, other: IO[bytes]) -> "_I":
         ...
 
+    @overload
+    def __rshift__(self, other: Generator[str, Any, None]) -> "P":
+        ...
+
+    @overload
+    def __rshift__(self, other: Generator[bytes, Any, None]) -> "P":
+        ...
+
     def __rshift__(
         self,
         other: Union[

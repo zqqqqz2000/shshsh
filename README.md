@@ -13,6 +13,8 @@ To install shshsh with conda, run: `conda install shshsh -c conda-forge`
 
 To install shshsh from source, clone the repository and run: `pip install poetry;poetry install`
 
+⚠️ **If you are using python3.8**: Be very careful with python function Pipe, there are known bugs!
+
 ## Basic Usage
 You can use `I >> "[command]"` or `Sh("[command]")`in any Python project.
 
@@ -29,7 +31,8 @@ Also, you can safely pass parameter without command injection, shshsh will help 
 from shshsh import I
 from sys import stdout
 
-(I >> "echo #{}") % "dangerous; cat /etc/passwd" | stdout
+res = (I >> "echo #{}") % "dangerous; cat /etc/passwd" | stdout
+res.wait()
 # dangerous; cat /etc/passwd
 
 ```
@@ -42,13 +45,15 @@ from sys import stdout
 def add_suffix(line: str) -> str:
     return line + ".py"
 
-I >> "ls -alh" | add_suffix | "grep test" | stdout
+res = I >> "ls -alh" | add_suffix | "grep test" | stdout
+res.wait()
 
 # as data source
 def data_source():
     for i in range(10):
         yield f"test{i}"
 
-I >> data_source() | "grep test1" | stdout
+res = I >> data_source() | "grep test1" | stdout
+res.wait()
 
 ```
