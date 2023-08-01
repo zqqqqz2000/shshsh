@@ -37,6 +37,7 @@ class Symbol:
 
 stdout = sys.stdout
 stderr = sys.stderr
+keep = subprocess.PIPE
 fork_stream = Symbol("fork_stream")
 
 _STD = Optional[Union[IO[bytes], int]]
@@ -214,7 +215,7 @@ class Sh:
         assert self._proc
         assert (
             self._proc.stderr
-        ), f"cannot get stdout, current stdout is redirect to {self._stderr}"
+        ), f"cannot get stderr, current stderr is redirect to {self._stderr}"
         return self._proc.stderr
 
     def run(self):
@@ -408,6 +409,16 @@ class Sh:
                 return Sh(other)
             elif isinstance(other, Sh):  # type: ignore
                 return other
+        return self
+
+    def __gt__(self, other: Union[_STD, TextIO]) -> "Sh":
+        assert not self._proc, "cannot set stdout after run"
+        self._stdout = other
+        return self
+
+    def __ge__(self, other: Union[_STD, TextIO]) -> "Sh":
+        assert not self._proc, "cannot set stdout after run"
+        self._stderr = other
         return self
 
     def or_(self, other: Union["Sh", str]) -> "Sh":
