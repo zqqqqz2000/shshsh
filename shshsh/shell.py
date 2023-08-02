@@ -139,13 +139,11 @@ class Sh:
             for placeholder in re.findall(placeholder_matcher, cmd_list[i]):
                 key = placeholder[len(left_placeholder) : -len(right_placeholder)]
                 if key in kwargs:
-                    cmd_list[i] = cmd_list[i].replace(
-                        placeholder, shlex.quote(kwargs[key])
-                    )
+                    cmd_list[i] = cmd_list[i].replace(placeholder, str(kwargs[key]))
                     continue
                 if not key and curr_args_idx < len(args):
                     cmd_list[i] = cmd_list[i].replace(
-                        placeholder, shlex.quote(args[curr_args_idx]), 1
+                        placeholder, str(args[curr_args_idx]), 1
                     )
                     curr_args_idx += 1
                     continue

@@ -1,4 +1,4 @@
-from shshsh import Sh
+from shshsh import Sh, I
 import pytest
 
 
@@ -28,3 +28,8 @@ def test_miss_argument():
     res = Sh("echo #{name},#{},#{},#{}")("test1", "test2", "test3")
     with pytest.raises(ValueError):
         res.run()
+
+
+def test_spec_filename():
+    res = I >> "cat tests/case1/spec_[token]"
+    assert res.stdout.read() == b"content"
