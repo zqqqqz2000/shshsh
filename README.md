@@ -2,9 +2,9 @@
 [![PyPI](https://img.shields.io/badge/python-3.8%7C3.9%7C3.10%7C3.11-blue.svg)](https://pypi.org/project/shshsh/)
 
 Shshsh is a bridge connects python and shell.
-- A simple way to write shell in python.
-- Flexable.
-- Support directly chain a python function in pipe.
+- A simple way to write shell commands in Python.
+- Flexibility.
+- Support for directly chaining a Python function in a pipeline.
 
 ## Installation
 To install shshsh with pip, run: `pip install shshsh`
@@ -27,7 +27,7 @@ for filename in I >> "ls" | "grep test":
 
 ```
 
-Also, you can safely pass parameter without command injection, shshsh will help you escape all bash control character:
+Also, you can safely pass parameter without worrying about command injection; shshsh will help you escape all bash control character:
 ```python
 from shshsh import I
 from sys import stdout
@@ -38,7 +38,7 @@ res.wait()
 
 ```
 
-The way to operate cwd:
+To operate on the current working directory (cwd):
 ```python
 from shshsh.utils import cwd
 
@@ -50,7 +50,7 @@ cwd()
 
 ```
 
-Python function or iterable can be part of chain, you no longer have to search Google (or chatgpt) repeatedly to write sed or awk😇:
+Python functions or iterables can be part of the chain. You no longer have to search Google (or chatgpt) repeatedly to write `sed` or `awk` 😇:
 ```python
 from shshsh import I
 from sys import stdout
@@ -72,9 +72,9 @@ res.wait()
 
 ```
 
-By default, the stderr will directly redirect to current python process's stderr. 
+By default, stderr will directly redirect to current Python process's stderr. 
 
-But you can also keep its result by redirect expr `>=` for stderr and `>` for stdout:
+But you can also keep its result using the redirect expr `>=` for stderr and `>` for stdout:
 
 ```python
 from shshsh import I, keep
@@ -86,7 +86,7 @@ print(res.stderr.read())
 
 ```
 
-The redirect expr can redirect the stream to any kind of IO object:
+The redirect expression can redirect the stream to any kind of IO object:
 ```python
 from shshsh import I
 
