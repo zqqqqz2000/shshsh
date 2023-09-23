@@ -27,7 +27,7 @@ for filename in I >> "ls" | "grep test":
 
 ```
 
-Also, you can safely pass parameter without worrying about command injection; shshsh will help you escape all bash control character:
+Also, you can safely pass parameter without worrying about command injection; shshsh will help you escape all bash control characters:
 ```python
 from shshsh import I
 from sys import stdout
