@@ -161,6 +161,7 @@ class Sh:
         callback: Optional[Callable[..., Any]] = None,
         env: Optional[Dict[str, str]] = None,
         cwd: Optional[str] = None,
+        zero_mode: bool = False,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -170,6 +171,7 @@ class Sh:
         self._stdin = stdin
         self._stdout = stdout
         self._stderr = stderr
+        self._zero_mode = zero_mode
         self.pass_fds = pass_fds
         assert self._if_placeholder_valid(
             arg_placeholder
@@ -357,7 +359,7 @@ class Sh:
             )
             return new_sh
         elif isinstance(other, Callable) or isinstance(other, Iterable):  # type: ignore
-            p = P(other)
+            p = P(other, zero_output=self._zero_mode)
             if not self._proc:
                 self._stdout = subprocess.PIPE
                 self.run()
@@ -403,7 +405,10 @@ class Sh:
             raise ValueError(f"result type: {result_type} is not supported")
 
     def __iter__(self) -> Generator[str, Any, None]:
-        return self.iter()  # type: ignore
+        if self._zero_mode:
+            return self.iter(sep="\x00")  # type: ignore
+        else:
+            return self.iter()  # type: ignore
 
     def __and__(self, other: Union["Sh", str]) -> "Sh":
         if self._proc is None:

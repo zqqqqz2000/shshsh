@@ -60,6 +60,7 @@ class P:
             Callable[[], List[_T]],
             Iterable[Union[bytes, str]],
         ],
+        zero_output: bool = False,
         sep: _T = ...,
         chunk_size: int = 1024,
     ) -> None:
@@ -73,8 +74,15 @@ class P:
         if isinstance(process_func, Iterable):
             self.arg_type = None
             if sep is ...:
-                self.sep = "\n"
+                if zero_output:
+                    self.sep = "\x00"
+                else:
+                    self.sep = "\n"
             else:
+                if zero_output:
+                    raise ValueError(
+                        "cannot use both customize `sep` and set `zero_output`=True"
+                    )
                 self.sep = sep
             return
         signature = inspect.signature(process_func)
@@ -89,16 +97,25 @@ class P:
             ), f"the process function arg type should be in (str, bytes), but got {type(self.arg_type)}"
             if sep is ...:
                 if self.arg_type is str:
-                    self.sep = "\n"
+                    if zero_output:
+                        self.sep = "\x00"
+                    else:
+                        self.sep = "\n"
                 else:
-                    self.sep = b"\n"
+                    if zero_output:
+                        self.sep = b"\x00"
+                    else:
+                        self.sep = b"\n"
             assert isinstance(
                 self.sep, self.arg_type
             ), f"sep type should same as arg_type, but sep: {type(self.sep)} arg: {self.arg_type}"
         else:
             self.arg_type = None
             if sep is ...:
-                self.sep = "\n"
+                if zero_output:
+                    self.sep = "\x00"
+                else:
+                    self.sep = "\n"
             else:
                 self.sep = sep
 

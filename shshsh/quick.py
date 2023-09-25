@@ -12,9 +12,11 @@ class _I:
         self,
         with_fds: Optional[List[int]] = None,
         with_stdin: Optional[Union[int, IO[bytes]]] = subprocess.PIPE,
+        zero_output: bool = False,
     ) -> None:
         self.with_fds: Optional[List[int]] = with_fds
         self.with_stdin: Optional[Union[int, IO[bytes]]] = with_stdin
+        self.zero_output = zero_output
 
     @overload
     def __rshift__(self, other: str) -> Sh:
@@ -60,27 +62,37 @@ class _I:
                 stdin=self.with_stdin,
                 cwd=global_vars.CWD,
                 env=global_vars.ENV,
+                zero_mode=self.zero_output,
             )
         elif isinstance(other, int):
             if self.with_fds:
-                return _I(with_stdin=other, with_fds=[*self.with_fds, other])
+                return _I(
+                    with_stdin=other,
+                    with_fds=[*self.with_fds, other],
+                    zero_output=self.zero_output,
+                )
             else:
-                return _I(with_stdin=other)
+                return _I(with_stdin=other, zero_output=self.zero_output)
         elif isinstance(other, io.IOBase):
             if self.with_fds:
-                return _I(with_stdin=other, with_fds=self.with_fds)  # type: ignore
+                return _I(with_stdin=other, with_fds=self.with_fds, zero_output=self.zero_output)  # type: ignore
             else:
-                return _I(with_stdin=other)  # type: ignore
+                return _I(with_stdin=other, zero_output=self.zero_output)  # type: ignore
         elif isinstance(other, Iterable):
-            return P(other)
+            return P(other, zero_output=self.zero_output)
         elif isinstance(other, Pipe):  # type: ignore
             if self.with_fds:
                 return _I(
                     with_stdin=other.out_fd,
                     with_fds=[*self.with_fds, other.in_fd, other.out_fd],
+                    zero_output=self.zero_output,
                 )
             else:
-                return _I(with_stdin=other.out_fd, with_fds=[other.in_fd, other.out_fd])
+                return _I(
+                    with_stdin=other.out_fd,
+                    with_fds=[other.in_fd, other.out_fd],
+                    zero_output=self.zero_output,
+                )
         else:
             raise ValueError("only accept str(command), int(fd), IO[bytes] or Pipe")
 
@@ -90,3 +102,4 @@ class _I:
 
 
 I = _I()
+IZ = _I(zero_output=True)
