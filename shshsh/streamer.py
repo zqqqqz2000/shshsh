@@ -24,13 +24,15 @@ if TYPE_CHECKING:
 def bytes_streamer(stream: IO[bytes], sep: bytes = b"\n", chunk_size: int = 1024):
     chunk_data = b""
     while True:
-        chunk_data += stream.read(chunk_size)
+        new_chunk_data = stream.read(chunk_size)
+        if not new_chunk_data:
+            yield chunk_data
+            return
+        chunk_data += new_chunk_data
         chunks = chunk_data.split(sep)
         for chunk in chunks[:-1]:
             yield chunk
-        chunk_data = chunks[-1]
-        if not chunk_data:
-            return
+        chunk_data = chunks[-1] if len(chunks) != 0 else b""
 
 
 def str_streamer(stream: IO[bytes], sep: str = "\n", chunk_size: int = 1024):
