@@ -20,11 +20,14 @@ You can use `I >> "[command]"` or `Sh("[command]")`in any Python project.
 
 Here's an example of getting all file which name contains "test":
 ```python
-from shshsh import I
+from shshsh import I, IZ
 
 for filename in I >> "ls" | "grep test":
     print(filename)
 
+# zero mode, split line by "\x00"
+for filename in IZ >> "ls" | "grep test":
+    print(filename)
 ```
 
 Also, you can safely pass parameter without worrying about command injection; shshsh will help you escape all bash control characters:
