@@ -2,6 +2,7 @@
 name = "shshsh"
 version = "1.0.5"
 description = "bridge of python and shell"
+repository = "https://github.com/zqqqqz2000/shshsh"
 authors = ["zqqqqz2000 <zqqqqz2000@sina.cn>"]
 readme = "README.md"
 
